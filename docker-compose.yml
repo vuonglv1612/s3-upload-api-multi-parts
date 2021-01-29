@@ -1,0 +1,16 @@
+version: "3.5"
+
+services:
+  api:
+    build: .
+    env_file:
+      - .env
+    command: uvicorn src.main:app --host 0.0.0.0 --limit-max-requests 1000
+    restart: unless-stopped
+    ports:
+      - "8090:8000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200M"
+        max-file: "5"
