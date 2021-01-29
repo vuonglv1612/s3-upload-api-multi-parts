@@ -1,11 +1,5 @@
-import logging
-from typing import List
-
-from fastapi import FastAPI, File, UploadFile, Body
+from fastapi import FastAPI, File, UploadFile
 from fastapi import status
-from fastapi.param_functions import Query
-from pydantic import Field
-from starlette.status import HTTP_200_OK
 
 from src.s3_uploader import S3Uploader
 from src.settings import settings
@@ -18,8 +12,6 @@ from src.schemas import (
     MultiPartsCompleteBody,
     MultiPartsAbortBody,
 )
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 app = FastAPI()
