@@ -30,3 +30,6 @@ Edit `.env` file
 `S3_ACCESS_KEY`: S3 access token  
 `S3_SECRET_KEY`: S3 secret token  
 `S3_BUCKET`: Bucket name  
+
+## Docs
+```http://upload-api-domain/docs```
