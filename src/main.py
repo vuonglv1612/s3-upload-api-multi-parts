@@ -64,17 +64,19 @@ async def part_upload(
 ):
     file_name = create_temp_filename(file.filename)
     start = time.time()
-    logger.info(f"Saving file {file_name}")
+    logger.info(f"Saving key: {key} part: {part_number} to file {file_name}")
     async with aiofiles.open(file_name, "wb") as f:
         while True:
             chunk = await file.read(settings.temp_saving_chunk_size * KB)
             if not chunk:
                 break
             await f.write(chunk)  # type: ignore
-    logger.info(f"Saved file {file_name}")
+    logger.info(f"Saved key: {key} part {part_number} to file {file_name}")
     s3 = create_s3_uploader()
     with open(file_name, "rb") as f:
-        logger.info(f"Uploading {key} part: {part_number} to bucket {bucket}")
+        logger.info(
+            f"Uploading key: {key} part: {part_number} to bucket {bucket}"
+        )
         part = await s3.part_upload(
             bucket=bucket,
             key=key,
@@ -84,7 +86,7 @@ async def part_upload(
         )
         stop = time.time()
         logger.info(
-            f"Uploaded {key} part: {part_number}. Done in {stop - start}"
+            f"Uploaded key: {key} part: {part_number}. Done in {stop - start}"
         )
         return {
             "bucket": bucket,
