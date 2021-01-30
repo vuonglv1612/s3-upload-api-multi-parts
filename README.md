@@ -29,7 +29,7 @@ Edit `.env` file
 `S3_ENDPOINT`: S3 provider endpoint. Ex: `https://ss-hn-1.bizflycloud.vn`  
 `S3_ACCESS_KEY`: S3 access token  
 `S3_SECRET_KEY`: S3 secret token  
-`S3_BUCKET`: Bucket name  
+`TEMP_SAVING_CHUNK_SIZE`: size of temp file buffer  
 
 ## Docs
 ```http://upload-api-domain/docs```

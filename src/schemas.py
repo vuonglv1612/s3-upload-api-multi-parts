@@ -1,6 +1,5 @@
-from fastapi.datastructures import UploadFile
 from pydantic import BaseModel
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 JSON = Dict[str, Any]
 
@@ -11,16 +10,12 @@ class BasicResponse(BaseModel):
 
 
 class Part(BaseModel):
-    part_number: int
-    etag: str
-
-
-class PartToUpload(BaseModel):
     PartNumber: int
     ETag: str
 
 
 class MultipartsInitBody(BaseModel):
+    bucket: str
     key: str
 
 
@@ -31,17 +26,24 @@ class MultipartsInitResponse(BaseModel):
 
 
 class MultiPartsUploadPartResponse(BaseModel):
+    bucket: str
     key: str
     upload_id: str
     part: Part
 
 
 class MultiPartsCompleteBody(BaseModel):
+    bucket: str
     key: str
     upload_id: str
     parts: List[dict]
 
 
 class MultiPartsAbortBody(BaseModel):
-    key: str
-    upload_id: str
+    bucket: str
+    key: Optional[str] = None
+    upload_id: Optional[str] = None
+
+
+class MultiPartsAbortResponse(BasicResponse):
+    aborted: List[Any]

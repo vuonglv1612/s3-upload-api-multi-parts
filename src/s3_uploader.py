@@ -1,18 +1,11 @@
-import logging
+from io import BufferedReader
 from typing import Any, Dict, List, Union
 
 import aioboto3
 from boto3.s3.transfer import MB
-from src.schemas import Part, PartToUpload
 
-JSON = Dict[str, Any]
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger("S3Uploader")
-
-
-def as_percent(num, denom):
-    return float(num) / float(denom) * 100.0
+from src.schemas import Part, JSON
+from src.utils import logger
 
 
 class S3Uploader:
@@ -32,21 +25,28 @@ class S3Uploader:
             aws_secret_access_key=self.secret_key,
         )
 
-    async def abort_all(self, bucket: str) -> List[JSON]:
+    async def abort_all(
+        self, bucket: str, key: str = None, upload_id: str = None
+    ) -> List[JSON]:
         aborted = []
         async with self._create_client() as client:
             uploads = await client.list_multipart_uploads(Bucket=bucket)
             logger.debug(f"Bucket {bucket}: Aborting {len(uploads)} uploads")
-            if "Uploads" in uploads:
-                for u in uploads["Uploads"]:
-                    upload_id = u["UploadId"]
-                    key = u["Key"]
-                    result = await client.abort_multipart_upload(
-                        Bucket=bucket,
-                        Key=key,
-                        UploadId=upload_id,
-                    )
-                    aborted.append(result)
+            if "Uploads" not in uploads:
+                return aborted
+            for u in uploads["Uploads"]:
+                uid = u["UploadId"]
+                if upload_id and upload_id != uid:
+                    continue
+                k = u["Key"]
+                if key and key != k:
+                    continue
+                result = await client.abort_multipart_upload(
+                    Bucket=bucket,
+                    Key=k,
+                    UploadId=uid,
+                )
+                aborted.append(result)
             logger.debug(f"Aborted: {aborted}")
         return aborted
 
@@ -69,14 +69,9 @@ class S3Uploader:
         bucket: str,
         key: str,
         upload_id: str,
-        part: bytes,
+        part: BufferedReader,
         part_number: int,
-        strict: bool = False,
     ) -> Part:
-        if strict:
-            part_size = len(part)
-            assert part_size >= self.PART_MINIMUM
-            assert part_number < self.PART_NUMBER_MAXIMUM
         async with self._create_client() as client:
             result = await client.upload_part(
                 Body=part,
