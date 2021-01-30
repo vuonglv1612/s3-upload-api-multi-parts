@@ -74,7 +74,7 @@ async def part_upload(
     logger.info(f"Saved file {file_name}")
     s3 = create_s3_uploader()
     with open(file_name, "rb") as f:
-        logger.info(f"Uploading {file_name}")
+        logger.info(f"Uploading {key} part: {part_number} to bucket {bucket}")
         part = await s3.part_upload(
             bucket=bucket,
             key=key,
@@ -83,7 +83,9 @@ async def part_upload(
             part_number=part_number,
         )
         stop = time.time()
-        logger.info(f"Uploaded file {file_name}. Done in {stop - start}")
+        logger.info(
+            f"Uploaded {key} part: {part_number}. Done in {stop - start}"
+        )
         return {
             "bucket": bucket,
             "upload_id": upload_id,
