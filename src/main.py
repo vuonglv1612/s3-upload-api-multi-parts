@@ -3,6 +3,7 @@ import time
 import aiofiles
 from boto3.s3.transfer import KB
 from fastapi import FastAPI, File, UploadFile, status
+from starlette.responses import RedirectResponse
 
 from src.s3_uploader import S3Uploader
 from src.schemas import (
@@ -26,6 +27,12 @@ def create_s3_uploader() -> S3Uploader:
         access_key=settings.s3_access_key,
         secret_key=settings.s3_secret_key,
     )
+
+
+@app.get("/", include_in_schema=False)
+@app.get("/home", include_in_schema=False)
+async def redirect_home_to_docs():
+    return RedirectResponse(url="/docs")
 
 
 @app.post(
