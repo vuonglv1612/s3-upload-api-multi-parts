@@ -15,7 +15,6 @@ class Part(BaseModel):
 
 
 class MultipartsInitBody(BaseModel):
-    bucket: str
     key: str
 
 
@@ -33,14 +32,12 @@ class MultiPartsUploadPartResponse(BaseModel):
 
 
 class MultiPartsCompleteBody(BaseModel):
-    bucket: str
     key: str
     upload_id: str
     parts: List[dict]
 
 
 class MultiPartsAbortBody(BaseModel):
-    bucket: str
     key: Optional[str] = None
     upload_id: Optional[str] = None
 
