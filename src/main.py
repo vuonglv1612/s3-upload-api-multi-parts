@@ -1,10 +1,11 @@
 import time
 
 import aiofiles
-from boto3.s3.transfer import KB
-from fastapi import FastAPI, File, UploadFile, status
+from fastapi import FastAPI, status
+from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from src.caching import MultipartUploadCaching
 from src.s3_uploader import S3Uploader
 from src.schemas import (
     BasicResponse,
@@ -16,7 +17,7 @@ from src.schemas import (
     MultiPartsUploadPartResponse,
 )
 from src.settings import settings
-from src.utils import create_temp_filename, logger
+from src.utils import create_temp_filename, logger, nomalize_file_name
 
 app = FastAPI()
 
@@ -42,10 +43,12 @@ async def redirect_home_to_docs():
 )
 async def multipart_init(body: MultipartsInitBody):
     s3 = create_s3_uploader()
-    upload_id = await s3.multiparts_init(bucket=body.bucket, key=body.key)
+    upload_id = await s3.multiparts_init(
+        bucket=settings.s3_bucket, key=body.key
+    )
     return {
         "upload_id": upload_id,
-        "bucket": body.bucket,
+        "bucket": settings.s3_bucket,
         "key": body.key,
     }
 
@@ -56,48 +59,49 @@ async def multipart_init(body: MultipartsInitBody):
     status_code=status.HTTP_201_CREATED,
 )
 async def part_upload(
-    bucket: str,
-    key: str,
-    upload_id: str,
-    part_number: int,
-    file: UploadFile = File(...),
+    name: str, upload_id: str, part_number: int, request: Request
 ):
-    file_name = create_temp_filename(file.filename)
+    name = nomalize_file_name(name)
+    caching = MultipartUploadCaching(
+        redis_uri=settings.caching_parts_redis_uri,
+        upload_id=upload_id,
+        file_name=name,
+    )
+    await caching.connect()
+    temp_file_name = create_temp_filename(name)
     start = time.time()
     logger.info(
-        f"[{upload_id}]Saving key: {key} part: {part_number} to file {file_name}"
+        f"[{upload_id}]Saving key: {name} part: {part_number} to file {temp_file_name}"
     )
-    async with aiofiles.open(file_name, "wb") as f:
-        while True:
-            chunk = await file.read(settings.temp_saving_chunk_size * KB)
-            if not chunk:
-                break
+    async with aiofiles.open(temp_file_name, "wb") as f:
+        async for chunk in request.stream():
             await f.write(chunk)  # type: ignore
     logger.info(
-        f"[{upload_id}]Saved key: {key} part {part_number} to file {file_name}"
+        f"[{upload_id}]Saved key: {name} part {part_number} to file {temp_file_name}"
     )
     s3 = create_s3_uploader()
-    with open(file_name, "rb") as f:
+    with open(temp_file_name, "rb") as f:
         logger.info(
-            f"[{upload_id}]Uploading key: {key} part: {part_number} to bucket {bucket}"
+            f"[{upload_id}]Uploading key: {name} part: {part_number} to bucket {settings.s3_bucket}"
         )
         part = await s3.part_upload(
-            bucket=bucket,
-            key=key,
+            bucket=settings.s3_bucket,
+            key=name,
             upload_id=upload_id,
             part=f,
             part_number=part_number,
         )
-        stop = time.time()
-        logger.info(
-            f"{upload_id}Uploaded key: {key} part: {part_number}. Done in {stop - start}"
-        )
-        return {
-            "bucket": bucket,
-            "upload_id": upload_id,
-            "key": key,
-            "part": part,
-        }
+    await caching.add_part(part.dict())
+    stop = time.time()
+    logger.info(
+        f"{upload_id}Uploaded key: {name} part: {part_number}. Done in {stop - start}"
+    )
+    return {
+        "bucket": settings.s3_bucket,
+        "upload_id": upload_id,
+        "key": name,
+        "part": part,
+    }
 
 
 @app.post(
@@ -110,7 +114,7 @@ async def multiparts_complete(body: MultiPartsCompleteBody):
     try:
         upload_id = await s3.multiparts_complete(
             upload_id=body.upload_id,
-            bucket=body.bucket,
+            bucket=settings.s3_bucket,
             key=body.key,
             parts=body.parts,
         )
@@ -129,7 +133,7 @@ async def abort(body: MultiPartsAbortBody):
     s3 = create_s3_uploader()
     try:
         aborted = await s3.abort_all(
-            bucket=body.bucket, key=body.key, upload_id=body.upload_id
+            bucket=settings.s3_bucket, key=body.key, upload_id=body.upload_id
         )
     except Exception as e:
         print(e)
