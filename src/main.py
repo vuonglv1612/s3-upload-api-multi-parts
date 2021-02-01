@@ -3,6 +3,7 @@ import time
 import aiofiles
 from boto3.s3.transfer import KB
 from fastapi import FastAPI, File, UploadFile, status
+from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from src.s3_uploader import S3Uploader
@@ -17,6 +18,7 @@ from src.schemas import (
 )
 from src.settings import settings
 from src.utils import create_temp_filename, logger
+from src.caching import MultipartUploadCaching
 
 app = FastAPI()
 
@@ -56,28 +58,28 @@ async def multipart_init(body: MultipartsInitBody):
     status_code=status.HTTP_201_CREATED,
 )
 async def part_upload(
-    bucket: str,
-    key: str,
-    upload_id: str,
-    part_number: int,
-    file: UploadFile = File(...),
+    bucket: str, key: str, upload_id: str, part_number: int, request: Request
 ):
-    file_name = create_temp_filename(file.filename)
+    file_name = key
+    caching = MultipartUploadCaching(
+        redis_uri=settings.caching_parts_redis_uri,
+        upload_id=upload_id,
+        file_name=file_name,
+    )
+    await caching.connect()
+    temp_file_name = create_temp_filename(key)
     start = time.time()
     logger.info(
-        f"[{upload_id}]Saving key: {key} part: {part_number} to file {file_name}"
+        f"[{upload_id}]Saving key: {key} part: {part_number} to file {temp_file_name}"
     )
-    async with aiofiles.open(file_name, "wb") as f:
-        while True:
-            chunk = await file.read(settings.temp_saving_chunk_size * KB)
-            if not chunk:
-                break
+    async with aiofiles.open(temp_file_name, "wb") as f:
+        async for chunk in request.stream():
             await f.write(chunk)  # type: ignore
     logger.info(
-        f"[{upload_id}]Saved key: {key} part {part_number} to file {file_name}"
+        f"[{upload_id}]Saved key: {key} part {part_number} to file {temp_file_name}"
     )
     s3 = create_s3_uploader()
-    with open(file_name, "rb") as f:
+    with open(temp_file_name, "rb") as f:
         logger.info(
             f"[{upload_id}]Uploading key: {key} part: {part_number} to bucket {bucket}"
         )
@@ -88,16 +90,17 @@ async def part_upload(
             part=f,
             part_number=part_number,
         )
-        stop = time.time()
-        logger.info(
-            f"{upload_id}Uploaded key: {key} part: {part_number}. Done in {stop - start}"
-        )
-        return {
-            "bucket": bucket,
-            "upload_id": upload_id,
-            "key": key,
-            "part": part,
-        }
+    await caching.add_part(part.dict())
+    stop = time.time()
+    logger.info(
+        f"{upload_id}Uploaded key: {key} part: {part_number}. Done in {stop - start}"
+    )
+    return {
+        "bucket": bucket,
+        "upload_id": upload_id,
+        "key": key,
+        "part": part,
+    }
 
 
 @app.post(

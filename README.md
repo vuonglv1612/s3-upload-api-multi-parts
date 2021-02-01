@@ -6,6 +6,7 @@ Multi parts uploading api using S3 as storage provider.
 - `uvicorn`  
 - `Docker Compose`  
 - `aioboto3`  
+- `redis`  
 
 ## Requirements
 - `docker`  
@@ -30,6 +31,7 @@ Edit `.env` file
 `S3_ACCESS_KEY`: S3 access token  
 `S3_SECRET_KEY`: S3 secret token  
 `TEMP_SAVING_CHUNK_SIZE`: size of temp file buffer  
+`CACHING_PARTS_REDIS_URI`: redis uri is for caching uploaded parts
 
 ## Docs
 ```http://upload-api-domain/docs```
