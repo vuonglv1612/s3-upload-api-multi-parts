@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Union
 
 import aioboto3
 from boto3.s3.transfer import MB
+from botocore.config import Config
 
 from src.schemas import Part, JSON
 from src.utils import logger
@@ -18,11 +19,13 @@ class S3Uploader:
         self.secret_key = secret_key
 
     def _create_client(self):
+        config = Config(retries={"max_attempts": 10, "mode": "standard"})
         return aioboto3.client(
             "s3",
             endpoint_url=self.endpoint,
             aws_access_key_id=self.access_key,
             aws_secret_access_key=self.secret_key,
+            config=config,
         )
 
     async def abort_all(
