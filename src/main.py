@@ -1,6 +1,7 @@
 import time
 
 import aiofiles
+import aiofiles.os
 from fastapi import FastAPI, status
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -80,22 +81,30 @@ async def part_upload(
         f"[{upload_id}]Saved key: {name} part {part_number} to file {temp_file_name}"
     )
     s3 = create_s3_uploader()
-    with open(temp_file_name, "rb") as f:
+    try:
+        with open(temp_file_name, "rb") as f:
+            logger.info(
+                f"[{upload_id}]Uploading key: {name} part: {part_number} to bucket {settings.s3_bucket}"
+            )
+            part = await s3.part_upload(
+                bucket=settings.s3_bucket,
+                key=name,
+                upload_id=upload_id,
+                part=f,
+                part_number=part_number,
+            )
+        stop = time.time()
+        await caching.add_part(part.dict())
         logger.info(
-            f"[{upload_id}]Uploading key: {name} part: {part_number} to bucket {settings.s3_bucket}"
+            f"{upload_id}Uploaded key: {name} part: {part_number}. Done in {stop - start}"
         )
-        part = await s3.part_upload(
-            bucket=settings.s3_bucket,
-            key=name,
-            upload_id=upload_id,
-            part=f,
-            part_number=part_number,
-        )
-    await caching.add_part(part.dict())
-    stop = time.time()
-    logger.info(
-        f"{upload_id}Uploaded key: {name} part: {part_number}. Done in {stop - start}"
-    )
+    except Exception as exec:
+        logger.exception("ERROR: %s", exec)
+        raise exec
+    finally:
+        logger.info(f"{upload_id}Deleting key: {name} part: {part_number}")
+        await aiofiles.os.remove(temp_file_name)
+        logger.info(f"{upload_id}Deleted key: {name} part: {part_number}")
     return {
         "bucket": settings.s3_bucket,
         "upload_id": upload_id,

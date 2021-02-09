@@ -1,6 +1,6 @@
 import logging
 import re
-import time
+import uuid
 
 from src.exceptions.common import IllegalNameException
 
@@ -8,7 +8,7 @@ logger = logging.getLogger("uvicorn.error")
 
 
 def create_temp_filename(filename: str) -> str:
-    return f"/tmp/{time.time()}-{filename}"
+    return f"/tmp/{uuid.uuid4().hex}-{filename}"
 
 
 def is_valid_filename(filename: str) -> bool:
