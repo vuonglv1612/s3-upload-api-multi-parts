@@ -6,7 +6,10 @@ from boto3.s3.transfer import MB
 from botocore.config import Config
 
 from src.schemas import Part, JSON
-from src.utils import logger
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("Uploader")
 
 
 class S3Uploader:

@@ -5,7 +5,7 @@ services:
     build: .
     env_file:
       - .env
-    command: uvicorn src.main:app --host 0.0.0.0 --limit-max-requests 1000
+    command: uvicorn src.main:app --host 0.0.0.0 --limit-max-requests 250 --workers 8 --log-level debug
     restart: unless-stopped
     ports:
       - "16120:8000"

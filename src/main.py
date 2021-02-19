@@ -63,12 +63,6 @@ async def part_upload(
     name: str, upload_id: str, part_number: int, request: Request
 ):
     name = nomalize_file_name(name)
-    caching = MultipartUploadCaching(
-        redis_uri=settings.caching_parts_redis_uri,
-        upload_id=upload_id,
-        file_name=name,
-    )
-    await caching.connect()
     temp_file_name = create_temp_filename(name)
     start = time.time()
     logger.info(
@@ -94,7 +88,6 @@ async def part_upload(
                 part_number=part_number,
             )
         stop = time.time()
-        await caching.add_part(part.dict())
         logger.info(
             f"{upload_id}Uploaded key: {name} part: {part_number}. Done in {stop - start}"
         )

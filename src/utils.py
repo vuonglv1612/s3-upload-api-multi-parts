@@ -4,7 +4,8 @@ import uuid
 
 from src.exceptions.common import IllegalNameException
 
-logger = logging.getLogger("uvicorn.error")
+logger = logging.getLogger("BLE")
+logger.setLevel(logging.DEBUG)
 
 
 def create_temp_filename(filename: str) -> str:
